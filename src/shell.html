@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>余烬 出征原型</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+/*__CSS__*/
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="出征画面"></canvas>
+
+<div id="hud" hidden>
+  <div class="top">
+    <div class="bar tide" id="cBar"><div class="fill" id="cFill"></div><i class="tick" style="left:30%"></i><i class="tick" style="left:60%"></i><i class="tick" style="left:85%"></i><span><b id="cStage">灰潮 · 薄雾</b><b id="cText">0</b></span></div>
+    <div class="hint" id="cHint" style="text-align:center;font-size:11px;text-shadow:0 1px 0 #000"></div>
+    <div class="bar boss" id="bBar" hidden><div class="fill" id="bFill"></div><span><b id="bName">蚀壳巨兽</b><i id="bText"></i></span></div>
+  </div>
+  <div class="tl">
+    <div class="row"><span class="lv" id="lvText">LV 1</span><span class="time" id="tText">0:00</span></div>
+    <div class="bar hp"><div class="fill" id="hFill"></div><span>生命<b id="hText">100</b></span></div>
+    <div class="bar ovl" id="oBar"><div class="fill" id="oFill"></div><span id="oText">过载 · 满 100 自动脉冲</span></div>
+  </div>
+  <div class="build" id="build"></div>
+  <div class="tr">
+    <canvas id="mini" width="440" height="280" aria-label="小地图"></canvas>
+    <div class="legend" id="layerText">外围</div>
+  </div>
+  <div class="bl" id="pack"><span class="k">背包</span><span class="k">废料</span><span class="v" id="scrapText">0</span><span class="k">零件</span><span class="v" id="partText">0</span><span class="k">击杀</span><span class="v" id="killText">0</span></div>
+  <div class="br">WASD 移动 · 按住 <kbd>E</kbd> 交互 · <kbd>Esc</kbd> 暂停查看构筑 · <kbd>M</kbd> 声音</div>
+  <div class="xp"><div class="fill" id="xFill"></div></div>
+  <div id="prompt"></div>
+  <div id="banner"><div class="b1" id="b1"></div><div class="b2" id="b2"></div></div>
+</div>
+
+<div id="overlay" role="dialog" aria-modal="true"></div>
+
+<script>
+/*__JS__*/
+</script>
+</body>
+</html>

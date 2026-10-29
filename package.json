@@ -1,0 +1,14 @@
+{
+  "name": "yujin",
+  "version": "0.2.5",
+  "private": true,
+  "description": "余烬 · 像素末日生存游戏原型（单页 HTML5 Canvas）",
+  "scripts": {
+    "build": "node tools/build.js",
+    "test": "node tools/build.js && node tools/sim.js 4 arc,warrior",
+    "shots": "node tools/build.js && node tools/shots.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}
