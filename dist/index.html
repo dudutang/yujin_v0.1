@@ -1338,6 +1338,7 @@ function drawMap(mc, W, H, sm, big) {
   for (const e of enemies) if (e.type === 'nest' && !e.dead && inM(e.x, e.y)) { mc.fillStyle = '#b79cff'; mc.beginPath(); mc.arc(X(e.x), Y(e.y), 5, 0, 6.283); mc.fill(); }
   mc.fillStyle = 'rgba(255,107,94,.8)'; for (const e of enemies) if (e.elite && e.type !== 'nest' && !e.dead && inM(e.x, e.y)) mc.fillRect(X(e.x) - 2, Y(e.y) - 2, 4, 4);
   if (big) { mc.fillStyle = 'rgba(255,255,255,.08)'; for (const e of enemies) if (!e.dead && !e.elite && inM(e.x, e.y)) mc.fillRect(X(e.x) - 1, Y(e.y) - 1, 2, 2); }
+  for (const m of MK) if (inM(m.x, m.y)) { mc.strokeStyle = m.col; mc.lineWidth = big ? 2 : 1.5; mc.globalAlpha = 0.5 + 0.4 * Math.sin(S.t * 4 + m.x); mc.beginPath(); mc.arc(X(m.x), Y(m.y), (big ? 9 : 6) + Math.sin(S.t * 4 + m.x) * 1.5, 0, 6.283); mc.stroke(); mc.globalAlpha = 1; if (big) { mc.fillStyle = m.col; mc.font = '700 12px ' + BODY_FONT; mc.textAlign = 'center'; mc.fillText(m.ch, X(m.x), Y(m.y) - 12); mc.textAlign = 'left'; } }
   mc.fillStyle = '#ffffff'; mc.beginPath(); mc.arc(W / 2, H / 2, 4, 0, 6.283); mc.fill();
   if (!inM(0, 0)) { const a = Math.atan2(-p.y, -p.x); mc.fillStyle = '#ffb454'; mc.save(); mc.translate(W / 2 + Math.cos(a) * Math.min(W, H) * 0.42, H / 2 + Math.sin(a) * Math.min(W, H) * 0.42); mc.rotate(a); mc.beginPath(); mc.moveTo(8, 0); mc.lineTo(-5, -5); mc.lineTo(-5, 5); mc.fill(); mc.restore(); }
   mc.fillStyle = 'rgba(255,255,255,.55)'; mc.font = (big ? 16 : 11) + 'px monospace'; mc.textAlign = 'right'; mc.fillText('离灯塔 ' + Math.round(Math.hypot(p.x, p.y) / M) + ' 米', W - 6, H - 6); mc.textAlign = 'left';
@@ -2596,7 +2597,7 @@ function titleScreen() {
   }).join('');
   const tapes = META.tapes.slice().sort((x, y) => x - y).map(i => `<li><b>#${i + 1}</b> ${TAPES[i]}</li>`).join('') || '<li class="hint">还没有带回任何录音带。中心层有一盘，进入深处后每 70 秒会出现新的信号。</li>';
   $('#overlay').innerHTML = `<div class="panel">
-    <div><div class="title">EMBERS · 出征原型 2.5</div><h2>余烬：提着灯走进灰潮</h2><div class="sub">两个职业：弧光师、破障者。撤离时带回的废料和零件存进工坊，买永久科技；倒下就全丢——只有装备例外，倒下也带得回来。</div></div>
+    <div><div class="title">EMBERS · 出征原型 2.6</div><h2>余烬：提着灯走进灰潮</h2><div class="sub">两个职业：弧光师、破障者。撤离时带回的废料和零件存进工坊，买永久科技；倒下就全丢——只有装备例外，倒下也带得回来。</div></div>
     <div class="grid2">
       <div class="box"><h3>工坊 · 库存 ${META.scrap} 废料 · ${META.part} 零件</h3><div class="techs">${techHTML}</div><div class="hint">零件主要来自精英（越深掉越多）和录音带。</div></div>
       <div class="box"><h3>老守灯人的录音带 ${META.tapes.length}/12</h3><ul class="tapes">${tapes}</ul></div>
@@ -2829,6 +2830,97 @@ function updAmbient(dt) {
   S.amb = A.filter(q => q.t > 0);
 }
 
+// ================= 交互点标记：光柱、地面涟漪、头顶徽记、名字、屏幕边缘箭头 =================
+// 所有能按 E 交互（或捡起来）的东西统一从这里出标记，颜色 = 种类，徽记里的字 = 一眼认出是什么。
+const MARK_LT = { '#ffb454': 'lamp', '#ffe08a': 'lamp', '#e7a93f': 'lamp', '#e8c160': 'lamp', '#ffd28a': 'lamp', '#c9b6ff': 'violet', '#b79cff': 'violet', '#a99cc9': 'violet', '#ff6b5e': 'red', '#9fe8ff': 'cyan', '#7ff0c8': 'cyan', '#9be08a': 'green', '#8fe6a6': 'green', '#ffffff': 'white', '#ff9a4a': 'ember' };
+let MK = [];
+function markList() {
+  const out = [], add = (o, col, ch, name, sub, h, kind, far) => out.push({ o, x: o.x, y: o.y, col, ch, name, sub, h, kind, far: far || 70 * M });
+  for (const l of S.lamps) if (!l.rep) add(l, '#ffb454', '灯', '路灯', S.loot.scrap >= REPAIR_COST ? `修复 ${REPAIR_COST} 废料 · 浓度 −${lampDrop()}` : `修复要 ${REPAIR_COST} 废料`, 58, 'lamp');
+  for (const c of S.chests) if (!c.open) add(c, c.gold ? '#ffe08a' : '#e7a93f', c.gold ? '金' : '柜', c.gold ? '金柜' : '储物柜', c.gold ? '免费 · 1–5 张升级' : `${chestCost(c)} 废料 · 稀有以上`, 36, c.gold ? 'gold' : 'chest');
+  for (const o of S.pois) {
+    if (o.used) continue;
+    if (o.kind === 'shrine') add(o, SHRINES[o.type].col, '神', SHRINES[o.type].name, '二选一，有代价', 50, 'shrine');
+    else if (o.kind === 'challenge') add(o, '#c9b6ff', '战', '挑战', S.chal ? '进行中' : `召约 ${chalCount()} 个，清完开金柜`, 52, 'challenge');
+    else if (o.kind === 'greed') add(o, '#e8c160', '贪', '贪婪碑', '灰潮 +25% · 废料 ×1.5', 50, 'greed');
+    else if (o.kind === 'scav') add(o, '#ffffff', '商', '拾荒者', `${scavPrice()} 废料一件`, 44, 'scav');
+    else if (o.kind === 'stone') add(o, STONES[o.type].col, '石', STONES[o.type].name, STONES[o.type].text, 50, 'stone', 40 * M);
+  }
+  for (const E of S.eyes) if (!E.used) add(E, '#ff6b5e', '眼', '潮眼', S.boss ? '巨兽还活着' : '召唤蚀壳巨兽 · 建议 15 级+', 26, 'eye');
+  if (!S.altar.used) add(S.altar, '#a99cc9', '坛', '祭坛', '一条灰潮祝福', 44, 'altar', 200 * M);
+  if (isW() && !S.spec) add(S.oath, '#ffd28a', '誓', '誓约碑', S.player.lvl >= 8 ? '可以转职' : '8 级转职', 50, 'oath', 200 * M);
+  for (const t of S.tapeItems) add(t, '#9fe8ff', '带', '录音带', '+2 零件 · 带回去才算', 18, 'tape', 200 * M);
+  for (const it of items) {
+    if (it.kind === 'gear') add(it, GEAR_RAR[it.gear.rar].col, '装', it.gear.name, GEAR_RAR[it.gear.rar].name + ' · 倒下也带得回', 18, 'gear', 30 * M);
+    else if (it.kind === 'chip') add(it, '#7ff0c8', '芯', '科技芯片', '装一个光环', 18, 'chip', 30 * M);
+  }
+  return out;
+}
+function markLights(lights) {
+  for (const m of MK) { if (m.x < camX - 120 || m.x > camX + VW + 120 || m.y < camY - 120 || m.y > camY + VH + 160) continue; const k = MARK_LT[m.col] || 'white'; lights.push([m.x, m.y - 12, (m.kind === 'gear' || m.kind === 'chip' || m.kind === 'tape' ? 1.6 : 2.4) * M, 0.6, k]); }
+}
+// 光柱：从物件脚下往上，加法混合，远远就能看见
+function markBeams(vx0, vy0, vx1, vy1) {
+  for (const m of MK) {
+    if (m.x < vx0 - 20 || m.x > vx1 + 20 || m.y < vy0 || m.y - 7 * M > vy1) continue;
+    const big = m.kind === 'gold' || m.kind === 'eye' || m.kind === 'altar' || m.kind === 'tape' || m.kind === 'lamp', H = (big ? 9 : 6) * M, w = big ? 9 : 6, pu = 0.75 + 0.25 * Math.sin(S.t * 2.2 + m.x * 0.01);
+    const g = ctx.createLinearGradient(0, m.y, 0, m.y - H); g.addColorStop(0, hexA(m.col, 0.55 * pu)); g.addColorStop(0.35, hexA(m.col, 0.22 * pu)); g.addColorStop(1, hexA(m.col, 0));
+    ctx.globalAlpha = 1; ctx.fillStyle = g; ctx.fillRect(m.x - w / 2, m.y - H, w, H);
+    ctx.fillStyle = hexA(m.col, 0.5 * pu); ctx.fillRect(m.x - 1, m.y - H * 0.8, 2, H * 0.8);
+  }
+}
+function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${Math.max(0, Math.min(1, a)).toFixed(3)})`; }
+// 地面涟漪 + 头顶徽记 + 名字（画在雾之上）
+function markWorld(inV) {
+  const p = S.player, tg = interactTarget(), cur = tg && tg.obj;
+  ctx.textAlign = 'center';
+  for (const m of MK) {
+    if (!inV(m.x, m.y)) continue;
+    const d = Math.hypot(m.x - p.x, m.y - p.y), on = cur === m.o, near = d < 11 * M;
+    // 涟漪：两圈向外扩散
+    for (let k = 0; k < 2; k++) { const ph = ((S.t * 0.6 + k * 0.5 + m.x * 0.003) % 1), r = 14 + ph * 26; ctx.strokeStyle = hexA(m.col, (on ? 0.9 : 0.55) * (1 - ph)); ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(m.x, m.y + 2, r, r * 0.42, 0, 0, 6.283); ctx.stroke(); }
+    if (on) { ctx.strokeStyle = hexA(m.col, 0.95); ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(m.x, m.y + 2, 30, 12.6, 0, 0, 6.283); ctx.stroke(); }
+    // 徽记
+    const bob = Math.sin(S.t * 3 + m.x * 0.02) * 2.5, by = m.y - m.h - 16 + bob, R = on ? 12 : near ? 10.5 : 9;
+    ctx.fillStyle = 'rgba(10,12,18,.85)'; ctx.beginPath(); ctx.arc(m.x, by, R + 2, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = m.col; ctx.lineWidth = on ? 2.5 : 2; ctx.beginPath(); ctx.arc(m.x, by, R, 0, 6.283); ctx.stroke();
+    ctx.fillStyle = hexA(m.col, 0.18 + 0.12 * Math.sin(S.t * 4 + m.y)); ctx.beginPath(); ctx.arc(m.x, by, R - 1, 0, 6.283); ctx.fill();
+    ctx.fillStyle = m.col; ctx.font = `700 ${on ? 13 : 11}px ${BODY_FONT}`; ctx.fillText(m.ch, m.x, by + (on ? 4.5 : 4));
+    ctx.beginPath(); ctx.moveTo(m.x - 4, by + R + 1); ctx.lineTo(m.x + 4, by + R + 1); ctx.lineTo(m.x, by + R + 6); ctx.fill();
+    // 名字：靠近才显示，站上去显示按 E
+    if (near || on) {
+      const a = on ? 1 : Math.min(1, (11 * M - d) / (3 * M)), ty = by - R - 8;
+      ctx.globalAlpha = a; ctx.font = `700 12px ${BODY_FONT}`;
+      const t1 = (on ? '[E] ' : '') + m.name, w1 = ctx.measureText(t1).width; ctx.font = `11px ${BODY_FONT}`; const w2 = ctx.measureText(m.sub).width, W = Math.max(w1, w2) + 14;
+      ctx.fillStyle = 'rgba(10,12,18,.82)'; ctx.fillRect(m.x - W / 2, ty - 26, W, 31); ctx.fillStyle = m.col; ctx.fillRect(m.x - W / 2, ty - 26, 2, 31);
+      ctx.font = `700 12px ${BODY_FONT}`; ctx.fillStyle = on ? '#ffffff' : m.col; ctx.fillText(t1, m.x, ty - 12);
+      ctx.font = `11px ${BODY_FONT}`; ctx.fillStyle = '#c3c9d6'; ctx.fillText(m.sub, m.x, ty + 1); ctx.globalAlpha = 1;
+    }
+  }
+  ctx.textAlign = 'left';
+}
+// 屏幕边缘箭头：每种最近的一个，最多 7 个，带徽记字和距离
+function markArrows(SW, SH) {
+  const p = S.player, best = {};
+  for (const m of MK) { const d = Math.hypot(m.x - p.x, m.y - p.y); if (d > m.far || d < 5 * M) continue; const ex = (m.x - camX) * ZOOM, ey = (m.y - camY) * ZOOM; if (ex > 30 && ex < SW - 30 && ey > 30 && ey < SH - 30) continue; const k = m.kind === 'shrine' ? 'shrine' + m.o.type : m.kind; if (!best[k] || best[k].d > d) best[k] = { m, d }; }
+  const list = Object.values(best).sort((a, b) => a.d - b.d).slice(0, 7);
+  // 安全区：避开左边构筑栏、顶部浓度条、右上小地图、底部提示
+  const wide = SW > 760, L = wide ? 250 : 40, T = 96, R = SW - 40, B = SH - 130, cx = (L + R) / 2, cy = (T + B) / 2, placed = [];
+  ctx.textAlign = 'center';
+  for (const { m, d } of list) {
+    const a = Math.atan2(m.y - p.y, m.x - p.x), ca = Math.cos(a), sa = Math.sin(a), t = Math.min(ca ? ((ca > 0 ? R : L) - cx) / ca : 1e9, sa ? ((sa > 0 ? B : T) - cy) / sa : 1e9);
+    let x = cx + ca * t, y = cy + sa * t;
+    if (wide && x > SW - 260 && y < 200) y = 200;
+    for (let k = 0; k < 6 && placed.some(([px, py]) => Math.abs(px - x) < 84 && Math.abs(py - y) < 40); k++) { if (Math.abs(x - L) < 2 || Math.abs(x - R) < 2) y += 42; else x += 86; }
+    placed.push([x, y]); const pu = 0.8 + 0.2 * Math.sin(S.t * 4 + d);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = m.col; ctx.globalAlpha = 0.95; ctx.beginPath(); ctx.moveTo(26, 0); ctx.lineTo(14, -8); ctx.lineTo(14, 8); ctx.fill(); ctx.restore();
+    ctx.globalAlpha = 0.92; ctx.fillStyle = 'rgba(10,12,18,.88)'; ctx.beginPath(); ctx.arc(x, y, 14, 0, 6.283); ctx.fill(); ctx.strokeStyle = m.col; ctx.lineWidth = 2; ctx.globalAlpha = pu; ctx.beginPath(); ctx.arc(x, y, 13, 0, 6.283); ctx.stroke();
+    ctx.globalAlpha = 1; ctx.fillStyle = m.col; ctx.font = `700 13px ${BODY_FONT}`; ctx.fillText(m.ch, x, y + 4.5);
+    const lx = x, ly = y > cy + 40 ? y - 22 : y + 32, lab = `${m.name} ${Math.round(d / M)}m`; ctx.font = `700 11px ${BODY_FONT}`; const w = ctx.measureText(lab).width + 8;
+    ctx.fillStyle = 'rgba(10,12,18,.7)'; ctx.fillRect(lx - w / 2, ly - 11, w, 15); ctx.fillStyle = m.col; ctx.fillText(lab, lx, ly);
+  }
+  ctx.textAlign = 'left';
+}
 // ================= 渲染 =================
 let camX = 0, camY = 0, RIM = null;
 function rimDraw(img, x, y, w, h, cx, cy) { if (!RIM) return; const dx = cx - RIM.x, dy = cy - RIM.y, d = Math.hypot(dx, dy); if (d > RIM.R || d < 2) return; ctx.globalAlpha = Math.min(1, (1 - d / RIM.R) * 2) * 0.95; ctx.drawImage(tintC(img, '#ffd09a'), x - dx / d * 2, y - dy / d * 2, w, h); ctx.globalAlpha = 1; } const BODY_FONT = "'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif";
@@ -2899,6 +2991,7 @@ function render() {
   const vx0 = camX - 80, vx1 = camX + VW + 80, vy0 = camY - 80, vy1 = camY + VH + 80;
   const inV = (x, y) => x > vx0 && x < vx1 && y > vy0 && y < vy1;
   collectVis(vx0, vy0, vx1, vy1);
+  MK = markList();
   if (!TILE_PAT) { TILE_PAT = TILE_IMG.map(c => ctx.createPattern(c, 'repeat')); ROAD_PAT = ctx.createPattern(ROAD_IMG, 'repeat'); }
   // 地面
   ctx.fillStyle = TILE_PAT[2]; ctx.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0);
@@ -3003,6 +3096,7 @@ function render() {
   const fl = 1 + 0.025 * Math.sin(S.t * 9) + 0.015 * Math.sin(S.t * 23);
   const lights = [];
   lights.push([p._lx || p.x, p._ly || p.y, S.lr * 1.35 * fl, 1, 'lantern']);
+  markLights(lights);
   lights.push([p.x, p.y, S.lr * 0.55, 0.35, 'lantern']);
   lights.push([b.x, b.y - 20, b.r * 1.3, 1, 'beacon']);
   for (const l of S.lamps) { if (l.rep) { const k = 0.8 + 0.2 * l.store / lampStore(); lights.push([l.x + 3, l.y - 10, 6.2 * M * fl, k, 'lamp']); lights.push([l.x + 3, l.y - 34, 1.6 * M, 0.9, 'white']); } else if (Math.random() < 0.6) lights.push([l.x + 3, l.y - 34, 1.1 * M * (0.6 + 0.4 * Math.random()), 0.6, 'lamp']); }
@@ -3114,6 +3208,7 @@ function render() {
   for (const pn of pins) glow(GLOW.blue, pn.x, pn.y - 20, 18, 0.8);
   for (const k in S.orb || {}) for (const q of S.orb[k].pos) { glow(k === 'l_arbiter' ? GLOW.lamp || GLOW.white : GLOW.blue, q[0], q[1], 22, 0.8); }
   for (const q of S.pets || []) glow(q.kind === 'elem' ? GLOW.ember : q.kind === 'raven' ? GLOW.violet : GLOW.blue, q.x, q.y - 8, 18, 0.6);
+  markBeams(vx0, vy0, vx1, vy1);
   drawAuras(glow);
   // 眼睛
   for (const e of vis) {
@@ -3154,6 +3249,7 @@ function render() {
   // 层边界文字
   ctx.font = '700 20px ' + BODY_FONT;
   for (const L of LAYERS.slice(1)) { const a = Math.atan2(p.y, p.x), bx = Math.cos(a) * L.r0, by = Math.sin(a) * L.r0; if (!inV(bx, by)) continue; const t = L.name + ' · 灰潮每 ' + (L.r0 > 60 * M ? 2.5 : 4) + ' 秒 +1 · 建议 LV ' + L.rec + '+'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillText(t, bx + 2, by + 2); ctx.fillStyle = 'rgba(200,190,235,.75)'; ctx.fillText(t, bx, by); ctx.textAlign = 'left'; }
+  markWorld(inV);
   // 光圈边、过载环、交互进度
   ctx.strokeStyle = low ? 'rgba(255,90,79,.4)' : 'rgba(255,190,110,.25)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 6]); ctx.beginPath(); ctx.arc(p.x, p.y, S.lr, 0, 6.283); ctx.stroke(); ctx.setLineDash([]);
   if (p.overload > 0) { ctx.strokeStyle = p.overload > 80 ? 'rgba(255,255,255,.85)' : 'rgba(159,208,255,.45)'; ctx.lineWidth = p.overload > 80 ? 2 : 1.5; ctx.beginPath(); ctx.arc(p.x, p.y + 4, 26, -Math.PI / 2, -Math.PI / 2 + 6.283 * p.overload / 100); ctx.stroke(); }
@@ -3161,14 +3257,9 @@ function render() {
   ctx.font = '700 12px Silkscreen, monospace'; ctx.textAlign = 'center';
   for (const n of nums) { const pop = 1 + 0.7 * Math.max(0, (n.t - 0.48) / 0.12), big = typeof n.v === 'number' && n.v >= 40 ? Math.min(1.7, 1 + Math.log2(n.v / 40) * 0.25) : 1, sz = 12 * pop * big;
     ctx.font = `700 ${sz.toFixed(1)}px Silkscreen, monospace`; ctx.globalAlpha = Math.min(1, n.t * 2.5); ctx.fillStyle = '#000'; ctx.fillText(n.v, n.x + 1, n.y + 1); ctx.fillStyle = n.c; ctx.fillText(n.v, n.x, n.y); } ctx.globalAlpha = 1; ctx.textAlign = 'left';
-  // 屏幕边缘箭头：最近的未用神龛 / 潮眼 / 金柜
+  // 屏幕边缘箭头：所有交互点，每种最近一个
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  { const tg = []; const near = (arr, col, lab) => { let b = null, bd = Infinity; for (const o of arr) { const d = (o.x - p.x) ** 2 + (o.y - p.y) ** 2; if (d < bd) { bd = d; b = o; } } if (b && bd > (6 * M) ** 2) tg.push([b, col, lab, Math.sqrt(bd)]); };
-    { let b = null, bd = Infinity; for (const o of S.pois) { if (o.used || o.kind === 'scav' || o.kind === 'stone') continue; const d = (o.x - p.x) ** 2 + (o.y - p.y) ** 2; if (d < bd) { bd = d; b = o; } } if (b && bd > (6 * M) ** 2) tg.push([b, b.kind === 'challenge' ? '#c9b6ff' : b.kind === 'greed' ? '#e8c160' : '#8fe6a6', b.kind === 'challenge' ? '挑战' : b.kind === 'greed' ? '贪婪碑' : SHRINES[b.type].name, Math.sqrt(bd)]); } near(S.eyes.filter(E => !E.used), '#ff6b5e', '潮眼'); near(S.chests.filter(c => !c.open && c.gold), '#ffe08a', '金柜'); near(S.pois.filter(o => !o.used && o.kind === 'scav'), '#ffffff', '拾荒者'); if (S.loot.scrap >= REPAIR_COST) near(S.lamps.filter(l => !l.rep), '#ffb454', '路灯'); near(S.tapeItems, '#9fe8ff', '录音带');
-    for (const [o, col, lab, dist] of tg) { const dx = o.x - p.x, dy = o.y - p.y, a = Math.atan2(dy, dx); const ex = (o.x - camX) * ZOOM, ey = (o.y - camY) * ZOOM; if (ex > 40 && ex < SW - 40 && ey > 40 && ey < SH - 40) continue;
-      const cx = SW / 2, cy = SH / 2, rx = SW / 2 - 70, ry = SH / 2 - 60, t = Math.min(rx / Math.abs(Math.cos(a) || 1e-6), ry / Math.abs(Math.sin(a) || 1e-6)); const x = cx + Math.cos(a) * t, y = cy + Math.sin(a) * t;
-      ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = col; ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-6, -8); ctx.lineTo(-2, 0); ctx.lineTo(-6, 8); ctx.fill(); ctx.restore();
-      ctx.fillStyle = col; ctx.globalAlpha = 0.85; ctx.font = '11px ' + BODY_FONT; ctx.textAlign = 'center'; ctx.fillText(`${lab} ${(dist / M).toFixed(0)}m`, x - Math.cos(a) * 22, y - Math.sin(a) * 22 + 4); ctx.globalAlpha = 1; ctx.textAlign = 'left'; } }
+  markArrows(SW, SH);
   // 暗角与危险提示
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(vignette(), 0, 0);

@@ -25,6 +25,7 @@
 24_run_report.js
 25_flow.js
 26_art.js
+27a_markers.js
 27_render.js
 28_hud.js
 29_bot.js

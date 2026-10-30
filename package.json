@@ -1,6 +1,6 @@
 {
   "name": "yujin",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "private": true,
   "description": "余烬 · 像素末日生存游戏原型（单页 HTML5 Canvas）",
   "scripts": {

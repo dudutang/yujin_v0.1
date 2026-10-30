@@ -68,6 +68,7 @@ function render() {
   const vx0 = camX - 80, vx1 = camX + VW + 80, vy0 = camY - 80, vy1 = camY + VH + 80;
   const inV = (x, y) => x > vx0 && x < vx1 && y > vy0 && y < vy1;
   collectVis(vx0, vy0, vx1, vy1);
+  MK = markList();
   if (!TILE_PAT) { TILE_PAT = TILE_IMG.map(c => ctx.createPattern(c, 'repeat')); ROAD_PAT = ctx.createPattern(ROAD_IMG, 'repeat'); }
   // 地面
   ctx.fillStyle = TILE_PAT[2]; ctx.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0);
@@ -172,6 +173,7 @@ function render() {
   const fl = 1 + 0.025 * Math.sin(S.t * 9) + 0.015 * Math.sin(S.t * 23);
   const lights = [];
   lights.push([p._lx || p.x, p._ly || p.y, S.lr * 1.35 * fl, 1, 'lantern']);
+  markLights(lights);
   lights.push([p.x, p.y, S.lr * 0.55, 0.35, 'lantern']);
   lights.push([b.x, b.y - 20, b.r * 1.3, 1, 'beacon']);
   for (const l of S.lamps) { if (l.rep) { const k = 0.8 + 0.2 * l.store / lampStore(); lights.push([l.x + 3, l.y - 10, 6.2 * M * fl, k, 'lamp']); lights.push([l.x + 3, l.y - 34, 1.6 * M, 0.9, 'white']); } else if (Math.random() < 0.6) lights.push([l.x + 3, l.y - 34, 1.1 * M * (0.6 + 0.4 * Math.random()), 0.6, 'lamp']); }
@@ -283,6 +285,7 @@ function render() {
   for (const pn of pins) glow(GLOW.blue, pn.x, pn.y - 20, 18, 0.8);
   for (const k in S.orb || {}) for (const q of S.orb[k].pos) { glow(k === 'l_arbiter' ? GLOW.lamp || GLOW.white : GLOW.blue, q[0], q[1], 22, 0.8); }
   for (const q of S.pets || []) glow(q.kind === 'elem' ? GLOW.ember : q.kind === 'raven' ? GLOW.violet : GLOW.blue, q.x, q.y - 8, 18, 0.6);
+  markBeams(vx0, vy0, vx1, vy1);
   drawAuras(glow);
   // 眼睛
   for (const e of vis) {
@@ -323,6 +326,7 @@ function render() {
   // 层边界文字
   ctx.font = '700 20px ' + BODY_FONT;
   for (const L of LAYERS.slice(1)) { const a = Math.atan2(p.y, p.x), bx = Math.cos(a) * L.r0, by = Math.sin(a) * L.r0; if (!inV(bx, by)) continue; const t = L.name + ' · 灰潮每 ' + (L.r0 > 60 * M ? 2.5 : 4) + ' 秒 +1 · 建议 LV ' + L.rec + '+'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillText(t, bx + 2, by + 2); ctx.fillStyle = 'rgba(200,190,235,.75)'; ctx.fillText(t, bx, by); ctx.textAlign = 'left'; }
+  markWorld(inV);
   // 光圈边、过载环、交互进度
   ctx.strokeStyle = low ? 'rgba(255,90,79,.4)' : 'rgba(255,190,110,.25)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 6]); ctx.beginPath(); ctx.arc(p.x, p.y, S.lr, 0, 6.283); ctx.stroke(); ctx.setLineDash([]);
   if (p.overload > 0) { ctx.strokeStyle = p.overload > 80 ? 'rgba(255,255,255,.85)' : 'rgba(159,208,255,.45)'; ctx.lineWidth = p.overload > 80 ? 2 : 1.5; ctx.beginPath(); ctx.arc(p.x, p.y + 4, 26, -Math.PI / 2, -Math.PI / 2 + 6.283 * p.overload / 100); ctx.stroke(); }
@@ -330,14 +334,9 @@ function render() {
   ctx.font = '700 12px Silkscreen, monospace'; ctx.textAlign = 'center';
   for (const n of nums) { const pop = 1 + 0.7 * Math.max(0, (n.t - 0.48) / 0.12), big = typeof n.v === 'number' && n.v >= 40 ? Math.min(1.7, 1 + Math.log2(n.v / 40) * 0.25) : 1, sz = 12 * pop * big;
     ctx.font = `700 ${sz.toFixed(1)}px Silkscreen, monospace`; ctx.globalAlpha = Math.min(1, n.t * 2.5); ctx.fillStyle = '#000'; ctx.fillText(n.v, n.x + 1, n.y + 1); ctx.fillStyle = n.c; ctx.fillText(n.v, n.x, n.y); } ctx.globalAlpha = 1; ctx.textAlign = 'left';
-  // 屏幕边缘箭头：最近的未用神龛 / 潮眼 / 金柜
+  // 屏幕边缘箭头：所有交互点，每种最近一个
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  { const tg = []; const near = (arr, col, lab) => { let b = null, bd = Infinity; for (const o of arr) { const d = (o.x - p.x) ** 2 + (o.y - p.y) ** 2; if (d < bd) { bd = d; b = o; } } if (b && bd > (6 * M) ** 2) tg.push([b, col, lab, Math.sqrt(bd)]); };
-    { let b = null, bd = Infinity; for (const o of S.pois) { if (o.used || o.kind === 'scav' || o.kind === 'stone') continue; const d = (o.x - p.x) ** 2 + (o.y - p.y) ** 2; if (d < bd) { bd = d; b = o; } } if (b && bd > (6 * M) ** 2) tg.push([b, b.kind === 'challenge' ? '#c9b6ff' : b.kind === 'greed' ? '#e8c160' : '#8fe6a6', b.kind === 'challenge' ? '挑战' : b.kind === 'greed' ? '贪婪碑' : SHRINES[b.type].name, Math.sqrt(bd)]); } near(S.eyes.filter(E => !E.used), '#ff6b5e', '潮眼'); near(S.chests.filter(c => !c.open && c.gold), '#ffe08a', '金柜'); near(S.pois.filter(o => !o.used && o.kind === 'scav'), '#ffffff', '拾荒者'); if (S.loot.scrap >= REPAIR_COST) near(S.lamps.filter(l => !l.rep), '#ffb454', '路灯'); near(S.tapeItems, '#9fe8ff', '录音带');
-    for (const [o, col, lab, dist] of tg) { const dx = o.x - p.x, dy = o.y - p.y, a = Math.atan2(dy, dx); const ex = (o.x - camX) * ZOOM, ey = (o.y - camY) * ZOOM; if (ex > 40 && ex < SW - 40 && ey > 40 && ey < SH - 40) continue;
-      const cx = SW / 2, cy = SH / 2, rx = SW / 2 - 70, ry = SH / 2 - 60, t = Math.min(rx / Math.abs(Math.cos(a) || 1e-6), ry / Math.abs(Math.sin(a) || 1e-6)); const x = cx + Math.cos(a) * t, y = cy + Math.sin(a) * t;
-      ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillStyle = col; ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-6, -8); ctx.lineTo(-2, 0); ctx.lineTo(-6, 8); ctx.fill(); ctx.restore();
-      ctx.fillStyle = col; ctx.globalAlpha = 0.85; ctx.font = '11px ' + BODY_FONT; ctx.textAlign = 'center'; ctx.fillText(`${lab} ${(dist / M).toFixed(0)}m`, x - Math.cos(a) * 22, y - Math.sin(a) * 22 + 4); ctx.globalAlpha = 1; ctx.textAlign = 'left'; } }
+  markArrows(SW, SH);
   // 暗角与危险提示
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(vignette(), 0, 0);

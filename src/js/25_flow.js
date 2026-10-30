@@ -9,7 +9,7 @@ function titleScreen() {
   }).join('');
   const tapes = META.tapes.slice().sort((x, y) => x - y).map(i => `<li><b>#${i + 1}</b> ${TAPES[i]}</li>`).join('') || '<li class="hint">还没有带回任何录音带。中心层有一盘，进入深处后每 70 秒会出现新的信号。</li>';
   $('#overlay').innerHTML = `<div class="panel">
-    <div><div class="title">EMBERS · 出征原型 2.5</div><h2>余烬：提着灯走进灰潮</h2><div class="sub">两个职业：弧光师、破障者。撤离时带回的废料和零件存进工坊，买永久科技；倒下就全丢——只有装备例外，倒下也带得回来。</div></div>
+    <div><div class="title">EMBERS · 出征原型 2.6</div><h2>余烬：提着灯走进灰潮</h2><div class="sub">两个职业：弧光师、破障者。撤离时带回的废料和零件存进工坊，买永久科技；倒下就全丢——只有装备例外，倒下也带得回来。</div></div>
     <div class="grid2">
       <div class="box"><h3>工坊 · 库存 ${META.scrap} 废料 · ${META.part} 零件</h3><div class="techs">${techHTML}</div><div class="hint">零件主要来自精英（越深掉越多）和录音带。</div></div>
       <div class="box"><h3>老守灯人的录音带 ${META.tapes.length}/12</h3><ul class="tapes">${tapes}</ul></div>
